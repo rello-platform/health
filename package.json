@@ -1,6 +1,6 @@
 {
   "name": "@rello-platform/health",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Canonical EngineHealthResponse discriminated-union types for the Rello ecosystem — Milo, Content, Property, Journey, Report, Drumbeat-Video engines.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,6 +20,9 @@
   "repository": {
     "type": "git",
     "url": "github:rello-platform/health"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "license": "UNLICENSED",
   "private": true
