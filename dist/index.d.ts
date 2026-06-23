@@ -6,6 +6,13 @@ interface BaseEngineHealth {
     commit: string;
     uptime: number;
     checks: HealthChecks;
+    /**
+     * OPTIONAL durable-jobs (`@rello-platform/durable-jobs`) queue health.
+     * Carried on the base (not a new `app` arm) so any engine OR spoke `/api/health`
+     * payload MAY report its bulk-ops queue depth + DLQ without forking the union
+     * (Pillar-4 design W-P4). Absent on payloads that run no durable-jobs drains.
+     */
+    bulkOps?: BulkOpsMetrics;
 }
 export interface HealthChecks {
     database?: {
@@ -56,6 +63,53 @@ export interface DVEMetrics {
     r2UsageMb: number;
     stuckCount: number;
     oldestStuckJobAt: string | null;
+}
+/**
+ * Durable-jobs (`@rello-platform/durable-jobs`) queue health for a SPOKE.
+ *
+ * Bulk-ops runs INSIDE spokes (Rello, Harvest-Home, …), not as a standalone
+ * deployable engine — so this is NOT a new `app` arm on the union. It is an
+ * OPTIONAL sub-object (`bulkOps?`) carried by `BaseEngineHealth`, so any health
+ * payload (engine OR spoke `/api/health`) MAY report its durable-jobs queue
+ * health without forking the union (Pillar-4 design W-P4, the per-spoke
+ * sub-object recommendation; mirrors the `DVEMetrics.queueCounts` lock rather
+ * than duplicating it).
+ *
+ * `queueCounts` mirrors the `DVEMetrics.queueCounts` precedent EXACTLY in
+ * shape (a status→count record), but the status vocabulary is the canonical
+ * `@rello-platform/durable-jobs` `BulkOpStatus` terminal set the drains write
+ * (PENDING / PROCESSING / COMPLETED / FAILED / DEAD_LETTER). `FAILED` =
+ * transient-budget-exhausted terminal; `DEAD_LETTER` = must-never-drop terminal
+ * (surfaced, never hidden — the DLQ). The two non-terminal-but-counted statuses
+ * the package also defines (`WAITING`, `EMPTY`) are intentionally folded:
+ * `WAITING` (released-for-retry) counts under `PENDING` for the operator view,
+ * and `EMPTY` (terminal no-op) is not surfaced as a queue level.
+ */
+export interface BulkOpsMetrics {
+    /**
+     * Per-status row counts SUMMED across every durable-jobs intent surface the
+     * spoke owns (count-first — cheap aggregate `count`, never a per-row scan).
+     *   - PENDING:     intents awaiting/released-for drain (PENDING + WAITING)
+     *   - PROCESSING:  intents a runner has claimed; work in flight
+     *   - COMPLETED:   terminal success
+     *   - FAILED:      transient-retries exhausted → terminal FAILED
+     *   - DEAD_LETTER: must-never-drop row exhausted → the DLQ (surfaced)
+     */
+    queueCounts: {
+        PENDING: number;
+        PROCESSING: number;
+        COMPLETED: number;
+        FAILED: number;
+        DEAD_LETTER: number;
+    };
+    /** DEAD_LETTER count specifically (must-never-drop) — the DLQ depth the alert thresholds on. */
+    deadLetterCount: number;
+    /**
+     * ISO timestamp of the oldest intent still in flight (stale-claim sentinel).
+     * Null when nothing is in flight. An oldest-in-flight aging past the drain's
+     * claim-TTL is the operator signal a drain is wedged.
+     */
+    oldestStuckOperationAt: string | null;
 }
 /**
  * Discriminated union — `app` field is the discriminator. Type narrowing in consumers
