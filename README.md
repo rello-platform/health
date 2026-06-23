@@ -47,6 +47,7 @@ function renderEngine(payload: EngineHealthResponse) {
 
 - Common fields: `status`, `version`, `commit`, `uptime`, `checks`.
 - `engineMetrics`: per-engine optional shape (`MiloEngineMetrics`, `ContentEngineMetrics`, `PropertyEngineMetrics`, `JourneyEngineMetrics`, `ReportEngineMetrics`, `DVEMetrics`).
+- `bulkOps?`: OPTIONAL `BulkOpsMetrics` carried on the BASE (not a new `app` arm) — durable-jobs (`@rello-platform/durable-jobs`) queue health any engine OR spoke `/api/health` payload MAY report (`queueCounts` = PENDING/PROCESSING/COMPLETED/FAILED/DEAD_LETTER, `deadLetterCount`, `oldestStuckOperationAt`). Bulk-ops runs inside spokes, so a per-payload sub-object models reality better than a phantom engine arm (Pillar-4 design W-P4). `queueCounts` mirrors the `DVEMetrics.queueCounts` precedent rather than forking it.
 
 `EngineUnreachable` is the aggregator-side fallback when a fan-out fetch fails — it carries `status: "unreachable"`, `app`, `lastError`, `attemptedAt`. `EngineHealthOrUnreachable` is the union both readers narrow over.
 
